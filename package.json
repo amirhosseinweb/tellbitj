@@ -4,7 +4,7 @@
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node src/index.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
