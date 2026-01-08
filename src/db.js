@@ -35,7 +35,10 @@ function initDb(dbPath) {
 
   // ---- lightweight migration for existing DBs (adds missing columns) ----
   const ensureColumn = (table, col, type) => {
-    const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(x => x.name);
+    const cols = db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .map((x) => x.name);
     if (!cols.includes(col)) {
       db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
     }
@@ -54,9 +57,12 @@ function DbRepo(db) {
 
   // Managers
   const isManagerStmt = db.prepare(`SELECT 1 FROM managers WHERE user_id = ?`);
-  const addManagerStmt = db.prepare(`INSERT OR IGNORE INTO managers(user_id) VALUES (?)`);
-  const listManagersStmt = db.prepare(`SELECT user_id FROM managers ORDER BY user_id ASC`);
-
+  const addManagerStmt = db.prepare(
+    `INSERT OR IGNORE INTO managers(user_id) VALUES (?)`
+  );
+  const listManagersStmt = db.prepare(
+    `SELECT user_id FROM managers ORDER BY user_id ASC`
+  );
 
   // Nicknames
   const upsertNicknameStmt = db.prepare(`
@@ -70,7 +76,9 @@ function DbRepo(db) {
       updated_at = excluded.updated_at
   `);
 
-  const getNicknameStmt = db.prepare(`SELECT nickname FROM nicknames WHERE chat_id = ? AND user_id = ?`);
+  const getNicknameStmt = db.prepare(
+    `SELECT nickname FROM nicknames WHERE chat_id = ? AND user_id = ?`
+  );
 
   const listNicknamesStmt = db.prepare(`
     SELECT user_id, display_name, username, nickname, updated_at
@@ -153,11 +161,33 @@ function DbRepo(db) {
     listOriginals(chatId) {
       return listOriginalsStmt.all(chatId);
     },
-    listManagers()
-     {
-        return listManagersStmt.all();
-      },
-      
+    listManagers() {
+      return listManagersStmt.all();
+    },
+    // حذف اصل کاربر
+    deleteOriginal(chatId, userId) {
+      const stmt = db.prepare(
+        "DELETE FROM originals WHERE chat_id = ? AND user_id = ?"
+      );
+      stmt.run(chatId, userId);
+    },
+    // حذف لقب کاربر
+    deleteNickname(chatId, userId) {
+      const stmt = db.prepare(
+        "DELETE FROM nicknames WHERE chat_id = ? AND user_id = ?"
+      );
+      stmt.run(chatId, userId);
+    },
+    // ذخیره اصل کاربر
+    upsertOriginal(chatId, userId, originalText) {
+      const stmt = db.prepare(`
+    INSERT INTO originals (chat_id, user_id, original_text)
+    VALUES (?, ?, ?)
+    ON CONFLICT(chat_id, user_id)
+    DO UPDATE SET original_text = excluded.original_text
+  `);
+      stmt.run(chatId, userId, originalText);
+    },
   };
 }
 

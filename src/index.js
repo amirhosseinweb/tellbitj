@@ -7,7 +7,7 @@ const {
   getUserDisplayName,
   stripPrefix,
   formatNowCalendars,
-  guessOriginalTypeLabel
+  guessOriginalTypeLabel,
 } = require("./utils");
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -23,7 +23,7 @@ const db = initDb(DB_PATH);
 const repo = DbRepo(db);
 
 const bot = new Telegraf(BOT_TOKEN, {
-  handlerTimeout: 30_000
+  handlerTimeout: 30_000,
 });
 
 // ----------------- Helpers -----------------
@@ -37,17 +37,24 @@ function requireManager(ctx) {
   if (uid === SUPER_ADMIN_ID) return true;
   return repo.isManager(uid);
 }
+async function replyToCommand(ctx, text, extra = {}) {
+  const m = ctx.message || ctx.editedMessage; // بررسی پیام
+  const chatId = m.chat.id; // گرفتن ID چت
+  return ctx.telegram.sendMessage(chatId, text, {
+    reply_to_message_id: m.message_id, // ریپلای روی همون پیام
+    ...extra, // سایر تنظیمات اضافه
+  });
+}
 
 function escapeMdV2(s) {
-    // Escape for Telegram MarkdownV2
-    return String(s).replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
-  }
-  
-  function mentionUserMdV2(userId, name) {
-    const safe = escapeMdV2(name || "کاربر");
-    return `[${safe}](tg://user?id=${userId})`;
-  }
-  
+  // Escape for Telegram MarkdownV2
+  return String(s).replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+}
+
+function mentionUserMdV2(userId, name) {
+  const safe = escapeMdV2(name || "کاربر");
+  return `[${safe}](tg://user?id=${userId})`;
+}
 
 async function isGroupAdmin(ctx, chatId, userId) {
   try {
@@ -80,16 +87,51 @@ function getMessageContentPayload(msg) {
 
   if (msg.photo && msg.photo.length) {
     const best = msg.photo[msg.photo.length - 1];
-    return { type: "photo", file_id: best.file_id, caption: msg.caption || null };
+    return {
+      type: "photo",
+      file_id: best.file_id,
+      caption: msg.caption || null,
+    };
   }
 
-  if (msg.video) return { type: "video", file_id: msg.video.file_id, caption: msg.caption || null };
-  if (msg.voice) return { type: "voice", file_id: msg.voice.file_id, caption: msg.caption || null };
-  if (msg.audio) return { type: "audio", file_id: msg.audio.file_id, caption: msg.caption || null };
-  if (msg.document) return { type: "document", file_id: msg.document.file_id, caption: msg.caption || null };
-  if (msg.animation) return { type: "animation", file_id: msg.animation.file_id, caption: msg.caption || null };
-  if (msg.sticker) return { type: "sticker", file_id: msg.sticker.file_id, caption: null };
-  if (msg.video_note) return { type: "video_note", file_id: msg.video_note.file_id, caption: null };
+  if (msg.video)
+    return {
+      type: "video",
+      file_id: msg.video.file_id,
+      caption: msg.caption || null,
+    };
+  if (msg.voice)
+    return {
+      type: "voice",
+      file_id: msg.voice.file_id,
+      caption: msg.caption || null,
+    };
+  if (msg.audio)
+    return {
+      type: "audio",
+      file_id: msg.audio.file_id,
+      caption: msg.caption || null,
+    };
+  if (msg.document)
+    return {
+      type: "document",
+      file_id: msg.document.file_id,
+      caption: msg.caption || null,
+    };
+  if (msg.animation)
+    return {
+      type: "animation",
+      file_id: msg.animation.file_id,
+      caption: msg.caption || null,
+    };
+  if (msg.sticker)
+    return { type: "sticker", file_id: msg.sticker.file_id, caption: null };
+  if (msg.video_note)
+    return {
+      type: "video_note",
+      file_id: msg.video_note.file_id,
+      caption: null,
+    };
 
   return { type: "unknown" };
 }
@@ -103,22 +145,40 @@ async function sendPayload(ctx, chatId, payload, replyToMessageId = null) {
       return ctx.telegram.sendMessage(chatId, payload.text || "", extra);
 
     case "photo":
-      return ctx.telegram.sendPhoto(chatId, payload.file_id, { ...extra, caption: payload.caption || undefined });
+      return ctx.telegram.sendPhoto(chatId, payload.file_id, {
+        ...extra,
+        caption: payload.caption || undefined,
+      });
 
     case "video":
-      return ctx.telegram.sendVideo(chatId, payload.file_id, { ...extra, caption: payload.caption || undefined });
+      return ctx.telegram.sendVideo(chatId, payload.file_id, {
+        ...extra,
+        caption: payload.caption || undefined,
+      });
 
     case "voice":
-      return ctx.telegram.sendVoice(chatId, payload.file_id, { ...extra, caption: payload.caption || undefined });
+      return ctx.telegram.sendVoice(chatId, payload.file_id, {
+        ...extra,
+        caption: payload.caption || undefined,
+      });
 
     case "audio":
-      return ctx.telegram.sendAudio(chatId, payload.file_id, { ...extra, caption: payload.caption || undefined });
+      return ctx.telegram.sendAudio(chatId, payload.file_id, {
+        ...extra,
+        caption: payload.caption || undefined,
+      });
 
     case "document":
-      return ctx.telegram.sendDocument(chatId, payload.file_id, { ...extra, caption: payload.caption || undefined });
+      return ctx.telegram.sendDocument(chatId, payload.file_id, {
+        ...extra,
+        caption: payload.caption || undefined,
+      });
 
     case "animation":
-      return ctx.telegram.sendAnimation(chatId, payload.file_id, { ...extra, caption: payload.caption || undefined });
+      return ctx.telegram.sendAnimation(chatId, payload.file_id, {
+        ...extra,
+        caption: payload.caption || undefined,
+      });
 
     case "sticker":
       return ctx.telegram.sendSticker(chatId, payload.file_id, extra);
@@ -127,7 +187,11 @@ async function sendPayload(ctx, chatId, payload, replyToMessageId = null) {
       return ctx.telegram.sendVideoNote(chatId, payload.file_id, extra);
 
     default:
-      return ctx.telegram.sendMessage(chatId, "این نوع پیام قابل ارسال نیست.", extra);
+      return ctx.telegram.sendMessage(
+        chatId,
+        "این نوع پیام قابل ارسال نیست.",
+        extra
+      );
   }
 }
 
@@ -166,7 +230,9 @@ function isBotCommandText(text) {
 // ----------------- Translation (Free, no key) -----------------
 async function translateWithMyMemory(text, toLang) {
   const base = "https://api.mymemory.translated.net/get";
-  const url = `${base}?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(`auto|${toLang}`)}`;
+  const url = `${base}?q=${encodeURIComponent(
+    text
+  )}&langpair=${encodeURIComponent(`auto|${toLang}`)}`;
 
   const res = await fetch(url, { method: "GET" });
   if (!res.ok) throw new Error("Translate API error");
@@ -184,16 +250,24 @@ async function handleNicknameAutoInfo(ctx) {
   if (!msg || !msg.reply_to_message) return;
 
   const text = normalizeText(msg.text || msg.caption || "");
-  if (isBotCommandText(text)) return; // ✅ روی دستورها لقب نفرست
+
+  // ✅ فقط وقتی کاربر خودش نوشته "لقب"
+  if (text !== "لقب") return;
 
   const chatId = msg.chat.id;
   const targetUser = msg.reply_to_message.from;
   if (!targetUser || targetUser.is_bot) return;
 
   const nick = repo.getNickname(chatId, targetUser.id);
-  if (!nick) return;
+  if (!nick)
+    return ctx.reply("این کاربر لقب ندارد", {
+      reply_to_message_id: msg.message_id,
+    });
 
-  await ctx.reply(`لقب کاربر: ${nick} می‌باشد`);
+  // ✅ جواب روی همان پیام دستور (همان پیام "لقب")
+  await ctx.telegram.sendMessage(chatId, `لقب کاربر: ${nick} می‌باشد`, {
+    reply_to_message_id: msg.message_id,
+  });
 }
 
 // ----------------- Commands -----------------
@@ -214,6 +288,45 @@ async function handleSetNickname(ctx, text) {
   repo.setNickname(chatId, target.targetUser.id, meta, rest);
 
   await ctx.reply(`لقب کاربر (${meta.display_name}) به «${rest}» تنظیم شد.`);
+}
+function getRandomResponse() {
+  const responses = ["شب خوش", "شب بخیر", "GN", "خداحافظ", "بای"];
+  return responses[Math.floor(Math.random() * responses.length)];
+}
+async function handleNightMessages(ctx) {
+  const msg = ctx.message;
+  const chatId = msg.chat.id;
+
+  // بررسی اینکه آیا پیام شامل یکی از کلمات شب خوش، شب بخیر، بای و غیره هست
+  const text = msg.text.toLowerCase();
+  const nick = repo.getNickname(chatId, msg.from.id); // گرفتن لقب کاربر
+
+  const responses = {
+    "شب خوش": getRandomResponse(),
+    "شب بخیر": getRandomResponse(),
+    بای: getRandomResponse(),
+    gn: getRandomResponse(),
+    GN: getRandomResponse(),
+    bye: getRandomResponse(),
+  };
+
+  // چک کردن پیام و ارسال پاسخ مناسب
+  for (let key in responses) {
+    if (text.includes(key)) {
+      let responseText = responses[key];
+
+      // اگر کاربر لقب داشته باشه، اضافه می‌کنیم
+      if (nick) {
+        responseText += ` ${nick}`;
+      }
+
+      // پاسخ ربات با ریپلای روی پیام
+      await replyToCommand(ctx, responseText, {
+        reply_to_message_id: msg.message_id,
+      });
+      return; // پس از پاسخ، دیگه ادامه ندیم
+    }
+  }
 }
 
 async function handleListNicknames(ctx) {
@@ -242,7 +355,8 @@ async function handleSetOriginal(ctx) {
   if (!target) return ctx.reply("این دستور باید روی پیام کاربر ریپلای شود.");
 
   const payload = getMessageContentPayload(target.reply);
-  if (payload.type === "unknown") return ctx.reply("این نوع پیام برای ثبت اصل پشتیبانی نمی‌شود.");
+  if (payload.type === "unknown")
+    return ctx.reply("این نوع پیام برای ثبت اصل پشتیبانی نمی‌شود.");
 
   const meta = getUserMeta(target.targetUser);
   repo.setOriginal(chatId, target.targetUser.id, meta, payload);
@@ -322,61 +436,62 @@ async function handleEchoFromMessage(ctx, msg) {
   }
 }
 async function handleTagManagers(ctx) {
-    if (!requireManager(ctx)) return;
-  
-    const msg = ctx.message;
-    const chatId = msg.chat.id;
-  
-    if (!msg.reply_to_message) {
-      return ctx.reply("دستور «تگ» باید روی پیام ریپلای شود.");
-    }
-  
-    const senderId = Number(msg.from?.id);
-  
-    // مدیران ربات از دیتابیس
-    const rows = repo.listManagers(); // [{user_id: ...}, ...]
-    const managerIds = new Set(rows.map(r => Number(r.user_id)));
-  
-    // سوپرادمین هم همیشه جزو مدیرهاست
-    managerIds.add(SUPER_ADMIN_ID);
-  
-    // ✅ کسی که دستور تگ داده تگ نشه
-    if (senderId) managerIds.delete(senderId);
-  
-    // اگر بعد از حذف، کسی برای تگ موند؟
-    if (managerIds.size === 0) {
-      return ctx.reply("مدیر دیگری برای تگ کردن وجود ندارد.");
-    }
-  
-    // اسم مدیران رو از تلگرام می‌گیریم تا منشن خوشگل باشه
-    const mentions = [];
-    for (const uid of managerIds) {
-      try {
-        const m = await ctx.telegram.getChatMember(chatId, uid);
-        const user = m?.user;
-  
-        const name =
-          ((user?.first_name || "") + (user?.last_name ? ` ${user.last_name}` : "")).trim();
-  
-        const display =
-          name || (user?.username ? `@${user.username}` : `ID:${uid}`);
-  
-        mentions.push(mentionUserMdV2(uid, display));
-      } catch {
-        // اگر نتونست اطلاعات بگیره، با ID منشن کن (باز هم کار می‌کنه)
-        mentions.push(mentionUserMdV2(uid, `ID:${uid}`));
-      }
-    }
-  
-    const text = mentions.join("  ");
-  
-    await ctx.telegram.sendMessage(chatId, text, {
-      reply_to_message_id: msg.reply_to_message.message_id,
-      parse_mode: "MarkdownV2",
-      disable_web_page_preview: true
-    });
+  if (!requireManager(ctx)) return;
+
+  const msg = ctx.message;
+  const chatId = msg.chat.id;
+
+  if (!msg.reply_to_message) {
+    return ctx.reply("دستور «تگ» باید روی پیام ریپلای شود.");
   }
-  
+
+  const senderId = Number(msg.from?.id);
+
+  // مدیران ربات از دیتابیس
+  const rows = repo.listManagers(); // [{user_id: ...}, ...]
+  const managerIds = new Set(rows.map((r) => Number(r.user_id)));
+
+  // سوپرادمین هم همیشه جزو مدیرهاست
+  managerIds.add(SUPER_ADMIN_ID);
+
+  // ✅ کسی که دستور تگ داده تگ نشه
+  if (senderId) managerIds.delete(senderId);
+
+  // اگر بعد از حذف، کسی برای تگ موند؟
+  if (managerIds.size === 0) {
+    return ctx.reply("مدیر دیگری برای تگ کردن وجود ندارد.");
+  }
+
+  // اسم مدیران رو از تلگرام می‌گیریم تا منشن خوشگل باشه
+  const mentions = [];
+  for (const uid of managerIds) {
+    try {
+      const m = await ctx.telegram.getChatMember(chatId, uid);
+      const user = m?.user;
+
+      const name = (
+        (user?.first_name || "") + (user?.last_name ? ` ${user.last_name}` : "")
+      ).trim();
+
+      const display =
+        name || (user?.username ? `@${user.username}` : `ID:${uid}`);
+
+      mentions.push(mentionUserMdV2(uid, display));
+    } catch {
+      // اگر نتونست اطلاعات بگیره، با ID منشن کن (باز هم کار می‌کنه)
+      mentions.push(mentionUserMdV2(uid, `ID:${uid}`));
+    }
+  }
+
+  const text = mentions.join("  ");
+
+  await ctx.telegram.sendMessage(chatId, text, {
+    reply_to_message_id: msg.reply_to_message.message_id,
+    parse_mode: "MarkdownV2",
+    disable_web_page_preview: true,
+  });
+}
+
 async function handleBan(ctx) {
   if (!requireManager(ctx)) return;
 
@@ -390,7 +505,7 @@ async function handleBan(ctx) {
 
   // محافظت مدیران ربات و سوپرادمین
   if (targetId === SUPER_ADMIN_ID || repo.isManager(targetId)) {
-    return ctx.reply("این کاربر مدیر ربات است و ریموو نمی‌شود.");
+    return ctx.reply("کاربر ادمین گروه است");
   }
 
   // محافظت ادمین‌های گروه
@@ -401,7 +516,9 @@ async function handleBan(ctx) {
     await ctx.telegram.banChatMember(chatId, targetId);
     await ctx.reply("کاربر با موفقیت از گروه حذف شد.");
   } catch {
-    await ctx.reply("خطا: بات دسترسی کافی برای حذف کاربر ندارد یا عملیات ممکن نیست.");
+    await ctx.reply(
+      "خطا: بات دسترسی کافی برای حذف کاربر ندارد یا عملیات ممکن نیست."
+    );
   }
 }
 
@@ -430,27 +547,29 @@ async function handleTranslate(ctx, text) {
     const hasFa = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(t);
     return hasFa ? "fa" : "en";
   }
-  
+
   async function translateWithMyMemory(text, toLang) {
     const fromLang = detectSourceLang(text);
-  
+
     // اگر مبدا و مقصد یکی شد، همون متن رو برگردون
     if (fromLang === toLang) return text;
-  
+
     const base = "https://api.mymemory.translated.net/get";
     const langpair = `${fromLang}|${toLang}`;
-    const url = `${base}?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(langpair)}`;
-  
+    const url = `${base}?q=${encodeURIComponent(
+      text
+    )}&langpair=${encodeURIComponent(langpair)}`;
+
     const res = await fetch(url, { method: "GET" });
     if (!res.ok) throw new Error("Translate API error");
-  
+
     const data = await res.json();
     const translated = data?.responseData?.translatedText;
     if (!translated) throw new Error("Translate response invalid");
-  
+
     return translated;
   }
-  
+
   const t = normalizeText(text);
   const toFa = t === "ترجمه فارسی";
   const toEn = t === "ترجمه انگلیسی";
@@ -467,6 +586,52 @@ async function handleTranslate(ctx, text) {
     await ctx.reply("ترجمه انجام نشد (ممکن است API محدودیت داده باشد).");
   }
 }
+async function handleDeleteOriginal(ctx) {
+  const msg = ctx.message;
+  const chatId = msg.chat.id;
+
+  if (!msg.reply_to_message) {
+    return replyToCommand(ctx, "دستور «حذف اصل» باید روی پیام ریپلای شود.");
+  }
+
+  const targetUser = msg.reply_to_message.from;
+  if (!targetUser || targetUser.is_bot) return;
+
+  // حذف اصل از دیتابیس
+  repo.deleteOriginal(chatId, targetUser.id);
+
+  // پاسخ به کاربر
+  await replyToCommand(
+    ctx,
+    `اصل کاربر ${targetUser.first_name || targetUser.username} حذف شد.`,
+    {
+      reply_to_message_id: msg.message_id,
+    }
+  );
+}
+async function handleDeleteNickname(ctx) {
+  const msg = ctx.message;
+  const chatId = msg.chat.id;
+
+  if (!msg.reply_to_message) {
+    return replyToCommand(ctx, "دستور «حذف لقب» باید روی پیام ریپلای شود.");
+  }
+
+  const targetUser = msg.reply_to_message.from;
+  if (!targetUser || targetUser.is_bot) return;
+
+  // حذف لقب از دیتابیس
+  repo.deleteNickname(chatId, targetUser.id);
+
+  // پاسخ به کاربر
+  await replyToCommand(
+    ctx,
+    `لقب کاربر ${targetUser.first_name || targetUser.username} حذف شد.`,
+    {
+      reply_to_message_id: msg.message_id,
+    }
+  );
+}
 
 async function handleCalendar(ctx, text) {
   if (!requireManager(ctx)) return;
@@ -480,7 +645,7 @@ async function handleCalendar(ctx, text) {
     `شمسی: ${persian}\n` +
     `قمری: ${hijri}\n` +
     `میلادی: ${gregorian}\n` +
-    `ساعت: ${time} (Europe/Brussels)`;
+    `ساعت: ${time} `;
 
   await ctx.reply(out);
 }
@@ -515,18 +680,31 @@ bot.on("message", async (ctx) => {
     await handleEchoFromMessage(ctx, msg);
 
     // بن/سیک
-    if (["سیک", "بن", "ban", "sik"].includes(text.toLowerCase())) return handleBan(ctx);
+    if (["سیک", "بن", "ban", "sik"].includes(text.toLowerCase()))
+      return handleBan(ctx);
 
     // تنظیم مدیر
     if (text === "تنظیم مدیر") return handleSetManager(ctx);
 
     // ترجمه
-    if (text === "ترجمه فارسی" || text === "ترجمه انگلیسی") return handleTranslate(ctx, text);
+    if (text === "ترجمه فارسی" || text === "ترجمه انگلیسی")
+      return handleTranslate(ctx, text);
 
     // تقویم/امروز
     if (text === "امروز" || text === "تقویم") return handleCalendar(ctx, text);
     if (text === "تگ") return handleTagManagers(ctx);
-
+    if (text === "حذف لقب") return handleDeleteNickname(ctx);
+    if (text === "حذف اصل") return handleDeleteOriginal(ctx);
+    // اضافه کردن بررسی برای پیام‌های شب خوش، شب بخیر، بای و GN
+    if (
+      text.includes("شب خوش") ||
+      text.includes("شب بخیر") ||
+      text.includes("bai") ||
+      text.includes("gn") ||
+      text.includes("bye")
+    ) {
+      return handleNightMessages(ctx);
+    }
   } catch {
     // سکوت برای جلوگیری از اسپم
   }
@@ -545,7 +723,8 @@ bot.on("edited_message", async (ctx) => {
 });
 
 // ----------------- Start -----------------
-bot.launch()
+bot
+  .launch()
   .then(() => console.log("✅ Bot is running..."))
   .catch((e) => {
     console.error("❌ Bot failed to start:", e);
